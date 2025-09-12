@@ -58,6 +58,7 @@ def full_pipeline(csd_code):
 
 ## this is what the output looks like if I use ABAYIO or something
 
+# full_pipeline('ABAYIO')
 # Evaluating property: 100%|██████████| 10/10 [00:00<00:00, 29.34it/s]
 # 2025-09-11 19:17:11.633 | INFO     | __main__:full_pipeline:23 - band gap : 1.2223217487335205 +/- 0.21109257638454437
 # 2025-09-11 19:17:11.636 | INFO     | __main__:full_pipeline:17 - pure_uptake_CO2_298.00_15000: 0.4529062832
@@ -74,4 +75,5 @@ def full_pipeline(csd_code):
 #  'pure_uptake_methane_298.00_6500000': 8.4242319463,
 #  'logKH_CO2': -4.353803176633964,
 #  'logKH_CH4': -4.770093007366181,
+
 #  'CH4DC': 140.90386560003927}
