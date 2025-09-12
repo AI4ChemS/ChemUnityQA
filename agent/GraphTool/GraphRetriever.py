@@ -16,7 +16,7 @@ class MOFRagSystem:
     """MOF Research Assistant using RAG over community summaries."""
     
     def __init__(self, summaries_file: str = "community_summaries_cleaned.jsonl", 
-                 persist_dir: str = "./chroma_db_mof_summaries"):
+                 persist_dir: str = "agent/GraphTool/chroma_db_mof_summaries"):
         self.summaries_file = summaries_file
         self.persist_dir = persist_dir
         self.vectorstore = None
@@ -179,16 +179,15 @@ def query_mof_database(question: str) -> str:
     try:
         rag_system = get_mof_rag_system()
         result = rag_system.query(question)
-        
-        # Format response for agent consumption
+
         response = result["answer"]
         if result["sources"]:
             response += "\n\n[Based on analysis of relevant MOF research communities]"
-        
         return response
-    
+
     except Exception as e:
         return f"Unable to query MOF database: {str(e)}"
+
 
 
 # Example usage and testing
