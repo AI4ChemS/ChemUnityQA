@@ -15,7 +15,7 @@ from tqdm import tqdm
 import warnings
 warnings.simplefilter('ignore')
 
-from ensemble_eval import load_csv, ensemble_pipeline
+from .ensemble_eval import load_csv, ensemble_pipeline
 from molSimplify.Informatics.MOF.PBC_functions import overlap_removal, solvent_removal
 from molSimplify.Informatics.MOF.MOF_descriptors import get_MOF_descriptors, get_primitive
 

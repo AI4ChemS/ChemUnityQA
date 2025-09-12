@@ -15,8 +15,8 @@ from tqdm import tqdm
 import warnings
 warnings.simplefilter('ignore')
 
-from ensemble_eval import load_csv, ensemble_pipeline
-from featurizer import MOFFeaturizer
+from .ensemble_eval import load_csv, ensemble_pipeline
+from .featurizer import MOFFeaturizer
 
 def full_pipeline(csd_code):
     properties = ['band gap', 'pure_uptake_CO2_298.00_15000', 'pure_uptake_CO2_298.00_1600000', 'pure_uptake_methane_298.00_580000', 'pure_uptake_methane_298.00_6500000', 
