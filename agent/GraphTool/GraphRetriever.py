@@ -69,16 +69,16 @@ Summary: {s['summary']}""".strip()
         embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
         
         # This will print the information we need to solve the problem.
-        print("+" * 60)
-        print(" " * 20 + "DEBUGGING INFO")
-        print(f"Current Working Directory: {os.getcwd()}")
+        # print("+" * 60)
+        # print(" " * 20 + "DEBUGGING INFO")
+        # print(f"Current Working Directory: {os.getcwd()}")
         absolute_path = os.path.abspath(self.persist_dir)
-        print(f"Checking for DB at (absolute path): {absolute_path}")
-        print(f"Does path exist? -> {os.path.exists(absolute_path)}")
-        if os.path.exists(absolute_path):
-            print(f"Is it a directory? -> {os.path.isdir(absolute_path)}")
-            print(f"Is directory empty? -> {not bool(os.listdir(absolute_path))}")
-        print("+" * 60)
+        # print(f"Checking for DB at (absolute path): {absolute_path}")
+        # print(f"Does path exist? -> {os.path.exists(absolute_path)}")
+        # if os.path.exists(absolute_path):
+            # print(f"Is it a directory? -> {os.path.isdir(absolute_path)}")
+            # print(f"Is directory empty? -> {not bool(os.listdir(absolute_path))}")
+        # print("+" * 60)
         
         if os.path.exists(self.persist_dir) and os.listdir(self.persist_dir):
             print("Loading existing vector store...")

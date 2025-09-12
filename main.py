@@ -1,5 +1,7 @@
 import argparse
+import os
 
+from langchain_core.messages import convert_to_messages
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -27,20 +29,4 @@ def parse_args():
     return args
 
 if __name__ == "__main__":
-    args = parse_args()
-
-    tools = []
-    agent_prompt = None
-    use_memory = True if args.c else False
-
-    agent = create_my_agent(tools, agent_prompt, use_memory)
-
-    if not use_memory:
-        if not args.prompt:
-            print("You need to provide a prompt for --prompt")
-            pass
-        response = agent.invoke({"messages": [{"role": "user", "content": args.prompt}]})
-        print(response)
-        
-
     pass

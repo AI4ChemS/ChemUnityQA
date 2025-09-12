@@ -19,15 +19,18 @@ from .ensemble_eval import load_csv, ensemble_pipeline
 from .featurizer import MOFFeaturizer
 
 def full_pipeline(csd_code):
-    """ The function uses a lookup function and ensemble of models to calculate the properties of MOFs.
-    These properties include: ['band gap', 'pure_uptake_CO2_298.00_15000', 'pure_uptake_CO2_298.00_1600000', 'pure_uptake_methane_298.00_580000', 'pure_uptake_methane_298.00_6500000', 
+    """ The function uses a lookup function and ensemble of models to calculate which applications a MOF is promising for based on it's properties.
+    Whenever you are interested in the properties of a MOF for an application use this function:
+    These properties are used for determining the application recommendations: ['band gap', 'pure_uptake_CO2_298.00_15000', 'pure_uptake_CO2_298.00_1600000', 'pure_uptake_methane_298.00_580000', 'pure_uptake_methane_298.00_6500000', 
               'logKH_CO2', 'logKH_CH4', 'CH4DC']
+    
+    These are the supported applications: ["Semiconductor", "Methane Storage", "carbon capture", "direct air capture"]
     
     INPUT: 
             -csd_code (str): the CSD Ref Code for the MOF in question
     
     OUTPUT: 
-            -dictionary with keys being properties and values are the results from the lookup or ensemble models"""
+            -dictionary with keys being applications and values are whether the MOF is promising or not for that application"""
     
     properties = ['band gap', 'pure_uptake_CO2_298.00_15000', 'pure_uptake_CO2_298.00_1600000', 'pure_uptake_methane_298.00_580000', 'pure_uptake_methane_298.00_6500000', 
               'logKH_CO2', 'logKH_CH4', 'CH4DC']
@@ -44,13 +47,13 @@ def full_pipeline(csd_code):
         for key, value in property_does_not_exist.items():
             if value == False:
                 all_properties_for_mof[key] = subset_df[key].values[0]
-                logger.info(f'{key}: {all_properties_for_mof[key]}')
+                #logger.info(f'{key}: {all_properties_for_mof[key]}')
             
             else:
                 X_eval = subset_df[descriptor_names].to_numpy()
                 avg_pred, std_pred = ensemble_pipeline(X_test = X_eval, task = key)
-                all_properties_for_mof[key] = f"{avg_pred} +/- {std_pred}"
-                logger.info(f'{key} : {all_properties_for_mof[key][0]} +/- {all_properties_for_mof[key][1]}')
+                #all_properties_for_mof[key] = f"{avg_pred} +/- {std_pred}"
+                all_properties_for_mof[key] = avg_pred
 
     else:
         # RACs and zpp descriptors do not exist
@@ -61,10 +64,16 @@ def full_pipeline(csd_code):
 
         for task in properties:
             avg_pred, std_pred = ensemble_pipeline(X_test = X_eval, task = task)
-            all_properties_for_mof[task] = f"{avg_pred} +/- {std_pred}"
-            logger.info(f"For {task}: {avg_pred} +/- {std_pred}")
+            #all_properties_for_mof[task] = f"{avg_pred} +/- {std_pred}"
+            all_properties_for_mof[key] = avg_pred
     
-    return all_properties_for_mof
+    recommendations = {}
+    recommendations['semiconductors'] = "Promising" if all_properties_for_mof['band gap'] < 3 else "Not promising"
+    recommendations['carbon capture'] = "Promising" if all_properties_for_mof['pure_uptake_CO2_298.00_15000'] >= 2 else "Not promising"
+    recommendations['methane storage'] = "Promising" if all_properties_for_mof['pure_uptake_methane_298.00_6500000'] >= 7.93 else "Not promising"
+    recommendations['DAC'] = "Promising" if all_properties_for_mof['logKH_CO2'] > -3.69 else "Not promising"
+    
+    return recommendations
 
 ## this is what the output looks like if I use ABAYIO or something
 
