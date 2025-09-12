@@ -1,54 +1,75 @@
-import os, json, yaml
 from typing import Dict, Any, List
+from langgraph.prebuilt import create_react_agent
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableLambda, RunnableParallel
-from tools_tobias.cypher_tool import CypherTool
-from tools_tobias.cypher_templates import cypher_from_task
-from tools_tobias.vector_tool import VectorTool
+from langchain_core.tools import tool
+from langchain_core.prompts import ChatPromptTemplate # Ensure this import is here
 
-CFG = yaml.safe_load(open("configs_tobias/settings.yaml"))
-LLM = ChatOpenAI(model=CFG["models"]["chat"], temperature=0)
+# Import your custom tool
+from agent.GraphTool.GraphRetriever import query_mof_database
 
-planner = (ChatPromptTemplate.from_messages([
-    ("system", "You are a planning agent for Mg-MOF-74 CO2 selectivity in flue gas. Return ONLY JSON list of tasks."),
-    ("user", "Goal: {goal}\nConstraints: {constraints}")
-]) | LLM | StrOutputParser())
 
-# instantiate tools
-neo_pw = os.environ.get(CFG["neo4j"]["password_env"], "")
-cy = CypherTool(CFG["neo4j"]["uri"], CFG["neo4j"]["user"], neo_pw, CFG["neo4j"].get("database"))
-vec = VectorTool(CFG["vector"]["chroma_dir"])
+# --- TOOL DEFINITION ---
+# This part remains the same.
+@tool
+def mof_database_tool(question: str) -> str:
+    """
+    Query the MOF research database for information about Metal-Organic Frameworks,
+    their properties, applications, and structure-property relationships.
+    Use this for any questions about MOFs, selectivity, synthesis, or performance.
+    """
+    return query_mof_database(question)
 
-def route(task: Dict[str, Any]) -> Dict[str, Any]:
-    q = (task.get("query") or "").lower()
-    use_graph = any(k in q for k in ["iast","isotherm","qst","selectivity","breakthrough","diffusion","pellet"])
-    return {"task": task, "use_graph": use_graph, "use_vector": True}
+tools = [mof_database_tool]
 
-router = RunnableLambda(route)
-exec_graph = RunnableLambda(lambda r: cy.query(cypher_from_task(r["task"])) if r["use_graph"] else [])
-exec_vec   = RunnableLambda(lambda r: vec.search(r["task"], k=5))
 
-summ = (ChatPromptTemplate.from_messages([
-    ("system", "Summarize for materials scientists. Keep numbers/units. Cite inline as [communityId] or [paper_id:line_no]."),
-    ("user", "Task: {task}\nGraphRows: {graph}\nEvidenceLines: {vec}")
-]) | LLM | StrOutputParser())
+# --- AGENT "BRAIN" / PROMPT ---
+# This is the new section that instructs the agent to plan and create subqueries.
+AGENT_SYSTEM_PROMPT = """
+You are an expert materials scientist specializing in lab automation and protocol generation.
+Your goal is to convert user requests into detailed, actionable, and quantifiable experimental procedures.
+NEVER provide a high-level or vague summary. Your outputs must be lab-ready.
+Assume the user is a robot or a technician who needs explicit, unambiguous instructions.
 
-def run_goal(goal: str, constraints: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
-    constraints = constraints or {}
-    tasks_json = planner.invoke({"goal": goal, "constraints": json.dumps(constraints)})
-    try:
-        tasks = json.loads(tasks_json)
-        if isinstance(tasks, dict): tasks = [tasks]
-    except Exception:
-        tasks = [{"query": goal, "intent":"General", "conditions": constraints, "must_have":["line_citations"], "limit":20}]
+For every procedure, you must include:
+- A scientific justification.
+- A specific list of reagents and equipment.
+- A numbered, step-by-step procedure with specific parameters (temperatures, times, quantities).
+- A plan for characterization.
+- A Design of Experiments (DOE) table for automated optimization, detailing variables, ranges, and step sizes.
 
-    results = []
-    for t in tasks:
-        routed = router.invoke(t)
-        g = exec_graph.invoke(routed)
-        v = exec_vec.invoke(routed)
-        s = summ.invoke({"task": json.dumps(t), "graph": json.dumps(g), "vec": json.dumps(v)})
-        results.append({"task": t, "graph": g, "evidence": v, "summary": s})
-    return results
+You must use your tools to find these specific details. If the details are not available, state that explicitly. Break down the user's goal into logical steps to gather all required information before synthesizing the final answer.
+"""
+
+prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", AGENT_SYSTEM_PROMPT),
+        ("user", "{messages}"),
+    ]
+)
+
+
+# --- AGENT EXECUTOR CREATION ---
+# We are now passing the new `prompt` to the agent.
+agent_executor = create_react_agent(
+    model=ChatOpenAI(model="gpt-4o", temperature=0),
+    tools=tools,
+    prompt=prompt, # This gives the agent its new instructions
+)
+
+
+# --- ENTRYPOINT FOR ORCHESTRAZOR ---
+# This part remains the same.
+def run_goal(goal: str, constraints: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    This is the function the orchestrator will call.
+    It runs the sub-agent to answer a specific question (goal).
+    """
+    print(f"--- KG Agent --- \nGoal: {goal}")
+    
+    response = agent_executor.invoke({"messages": [{"role": "user", "content": goal}]})
+    
+    final_answer = response['messages'][-1].content
+    
+    print(f"Result: {final_answer}\n--- End KG Agent ---")
+    
+    return {"final": final_answer}

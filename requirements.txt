@@ -339,3 +339,5 @@ langgraph
 neo4j
 pydantic
 pyyaml
+langchain-community
+chromadb

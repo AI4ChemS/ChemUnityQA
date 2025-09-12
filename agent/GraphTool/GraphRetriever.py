@@ -1,3 +1,6 @@
+# agent/GraphTool/GraphRetriever.py
+# --- FULL REPLACEMENT CODE ---
+
 import json
 import os
 from typing import List, Dict, Any
@@ -43,7 +46,6 @@ class MOFRagSystem:
             all_mofs = s.get("mofs", [])
             n_mofs = len(all_mofs)
 
-            # Include MOF names only for communities with <= 10 MOFs
             if n_mofs <= 10:
                 mof_text = f"MOFs: {', '.join(all_mofs)}"
             else:
@@ -66,7 +68,18 @@ Summary: {s['summary']}""".strip()
         """Create or load the vector store."""
         embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
         
-        # Check if persistent directory exists and has data
+        # This will print the information we need to solve the problem.
+        print("+" * 60)
+        print(" " * 20 + "DEBUGGING INFO")
+        print(f"Current Working Directory: {os.getcwd()}")
+        absolute_path = os.path.abspath(self.persist_dir)
+        print(f"Checking for DB at (absolute path): {absolute_path}")
+        print(f"Does path exist? -> {os.path.exists(absolute_path)}")
+        if os.path.exists(absolute_path):
+            print(f"Is it a directory? -> {os.path.isdir(absolute_path)}")
+            print(f"Is directory empty? -> {not bool(os.listdir(absolute_path))}")
+        print("+" * 60)
+        
         if os.path.exists(self.persist_dir) and os.listdir(self.persist_dir):
             print("Loading existing vector store...")
             self.vectorstore = Chroma(
@@ -75,6 +88,10 @@ Summary: {s['summary']}""".strip()
             )
         else:
             print("Creating new vector store...")
+            if not docs: # Check if docs list is empty
+                summaries = self._load_summaries()
+                docs = self._create_documents(summaries)
+            
             self.vectorstore = Chroma.from_documents(
                 documents=docs,
                 embedding=embeddings,
@@ -106,7 +123,7 @@ Summary: {s['summary']}""".strip()
         ])
 
         self.qa_chain = RetrievalQA.from_chain_type(
-            llm=ChatOpenAI(model="gpt-4o", temperature=0.2),  # Changed from gpt-5 to gpt-4o
+            llm=ChatOpenAI(model="gpt-4o", temperature=0.2),
             retriever=retriever,
             return_source_documents=True,
             chain_type="stuff",
@@ -119,9 +136,9 @@ Summary: {s['summary']}""".strip()
     def _initialize_system(self) -> None:
         """Initialize the complete RAG system."""
         try:
-            summaries = self._load_summaries()
-            docs = self._create_documents(summaries)
-            self._setup_vectorstore(docs)
+            # We pass an empty list for docs initially.
+            # _setup_vectorstore will handle loading or creating.
+            self._setup_vectorstore([]) 
             self._setup_qa_chain()
             print("MOF RAG system initialized successfully")
         except Exception as e:
@@ -179,7 +196,8 @@ def query_mof_database(question: str) -> str:
     try:
         rag_system = get_mof_rag_system()
         result = rag_system.query(question)
-
+        
+        # Format response for agent consumption
         response = result["answer"]
         if result["sources"]:
             response += "\n\n[Based on analysis of relevant MOF research communities]"
@@ -192,7 +210,6 @@ def query_mof_database(question: str) -> str:
 
 # Example usage and testing
 if __name__ == "__main__":
-    # Test the tool
     test_query = "How can I synthesize MOF mg-mof-74 to be more selective to CO2 in flue gas?"
     result = query_mof_database(test_query)
     print("Query:", test_query)
