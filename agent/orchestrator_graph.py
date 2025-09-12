@@ -30,9 +30,12 @@ def planner_node(state: OrchestratorState):
     prompt = ChatPromptTemplate.from_messages([
         ("system",
          "You are an expert materials science researcher. Your job is to create a concise, high-level, step-by-step plan to answer the user's goal. "
-         "Create a plan with **no more than 5-7 steps**. "
+         "Create a comprehensive and ready to go plan that a self driving lab or technician can execute, if the question is more general, break it down into specific research tasks based on the user's goals "
          "Each step should be a complete research task that can be delegated to an assistant. For example, a single step should be 'Find a complete, lab-ready protocol for amine functionalization of Mg-MOF-74', not broken down into smaller pieces. "
-         "Respond with a numbered list of steps and nothing else."),
+         "Respond with a numbered list of steps using reagents, amounts and such where possible."
+         "The user likely prompted a basic question, but you must break it down into a detailed research plan for the next parts of the agent, that looks similar to the following prompt template within the --- --- markers later on in this text, if it is already similarly detailed with queries, accept the queries, within reason"
+         "---Your task is to generate three distinct, lab-ready experimental protocols to increase the CO2 selectivity of a Metal-Organic Framework (MOF) in a simulated flue gas stream (CO2/N2 mixture).  For each of the three protocols, you MUST provide the following sections: 1.  **Justification:** A brief, science-based explanation for why this method is expected to work. 2.  **Reagents and Equipment:** A specific list of all necessary chemicals (with example masses/volumes) and equipment. 3.  **Step-by-Step Procedure:** Explicit, numbered steps for a lab technician or robot to follow. Include specific temperatures (°C), times (hours), and stirring speeds (rpm) where applicable. 4.  **Characterization:** List the techniques (e.g., PXRD, BET, TGA) to verify the modification was successful. 5.  **Design of Experiments (DOE) for Automation:** Propose a small set of key variables that a self-driving lab could test to optimize the procedure. Present this as a table with columns for 'Variable', 'Range', and 'Step Size'. The final output should be three complete, standalone protocols ready for execution.---"
+         ""),
         ("user", "User's Goal: {goal}")
     ])
     planner_llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -63,9 +66,8 @@ def synthesizer_node(state: OrchestratorState):
     prompt = ChatPromptTemplate.from_messages([
         ("system",
          "You are an expert materials science writer. Your job is to synthesize the results of a research plan into a final, comprehensive report. "
-         "The user's original goal and a list of completed steps are provided below. Each step's result is a JSON object containing an 'answer' and a list of 'sources' (community IDs from the knowledge graph). "
-         "You MUST use the information from the 'answer' fields to construct your report. "
-         "At the end of your report, you MUST include the references to the MOF knowledge graph by their original refcode"),
+         "The user's original goal and a list of completed steps are provided below. Each step's result is a JSON object containing an 'answer'. "
+         "You MUST use the information from the 'answer' fields to construct your report. "),
         ("user", "Original Goal: {goal}\n\nCompleted Steps and Results:\n{past_steps}")
     ])
     synthesizer_llm = ChatOpenAI(model="gpt-4o", temperature=0.3)
