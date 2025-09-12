@@ -333,3 +333,9 @@ xxhash==3.5.0
     # via langgraph
 zstandard==0.24.0
     # via langsmith
+langchain
+langchain-openai
+langgraph
+neo4j
+pydantic
+pyyaml

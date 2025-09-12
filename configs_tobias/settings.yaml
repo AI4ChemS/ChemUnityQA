@@ -1,0 +1,7 @@
+neo4j:
+  uri: bolt://localhost:7687      # or bolt+s://<host>:7687
+  user: neo4j
+  password_env: Hackathon    # read from env for safety
+  database: neo4j                 # optional
+models:
+  chat: gpt-4o-mini

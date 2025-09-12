@@ -1,0 +1,76 @@
+# pip install -U langchain langchain-openai neo4j
+from typing import List, Dict, Any
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda
+from langchain_core.output_parsers import StrOutputParser
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+#  Planner expands a goal into structured sub-queries (using the taxonomy) ---
+planner_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "You are a planning agent for Mg-MOF-74 CO2 selectivity in flue gas. "
+     "Expand the goal into 3-7 structured tasks using the provided JSON schema. "
+     "Prefer tasks that can be answered by a knowledge graph + line-level literature evidence. Return pure JSON."),
+    ("user", "Goal: {goal}\nConstraints: {constraints}")
+])
+plan = planner_prompt | llm | StrOutputParser()
+
+# Router picks graph vs vector or both per task ---
+def route(task: Dict[str, Any]) -> Dict[str, Any]:
+    q = task["query"].lower()
+    use_graph = any(k in q for k in ["ia st", "isotherm", "qst", "selectivity", "breakthrough", "diffusion", "pellet"])
+    use_vector = True  # almost always, for line-level justifications
+    return {"task": task, "use_graph": use_graph, "use_vector": use_vector}
+router = RunnableLambda(route)
+
+# Executors ---
+def cypher_exec(task: Dict[str, Any]) -> List[Dict]:
+    # Build Cypher from task fields. Example templates below in section 5.
+    return run_cypher_from_task(task)
+
+def vector_exec(task: Dict[str, Any]) -> List[Dict]:
+    # Vector search over your line-index; return [{"text": "...", "paper_id": "...", "line_no": 123, "score": 0.78}, ...]
+    return run_vector_from_task(task)
+
+def evidence(task, grows, vrows):
+    # Merge: attach nearest evidence lines to each numeric/claim
+    return join_graph_and_lines(task, grows, vrows)
+
+exec_graph = RunnableLambda(lambda r: cypher_exec(r["task"]) if r["use_graph"] else [])
+exec_vector = RunnableLambda(lambda r: vector_exec(r["task"]) if r["use_vector"] else [])
+join_evidence = RunnableLambda(lambda x: evidence(x["task"], x["graph"], x["vec"]))
+
+#Summarizer per task, preserving citations ---
+summ_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "Summarize findings for materials scientists. Keep numbers/units. "
+     "ALWAYS include inline source markers like [paper_id:line_no] for each key claim."),
+    ("user", "Task: {task}\nGraphRows: {graph}\nEvidenceLines: {vec}")
+])
+summ = summ_prompt | llm | StrOutputParser()
+
+# End-to-end run for one goal ---
+def run_goal(goal: str, constraints: Dict[str, Any]):
+    tasks_json = plan.invoke({"goal": goal, "constraints": constraints})
+    tasks: List[Dict] = json.loads(tasks_json)
+    outputs = []
+    for t in tasks:
+        routed = router.invoke(t)
+        g = exec_graph.invoke(routed)
+        v = exec_vector.invoke(routed)
+        merged = {"task": t, "graph": g, "vec": v}
+        summary = summ.invoke(merged)
+        outputs.append({"task": t, "summary": summary, "graph": g, "evidence": v})
+    return outputs
+
+
+#Should return something like MATCH (m:Material {name:"Mg-MOF-74"})-[:HAS_MEASUREMENT]->(meas:Measurement)-[:OF_PROPERTY]->(p:Property {name:"IAST_selectivity_CO2_N2"})
+#MATCH (meas)-[:AT_CONDITION]->(c:Condition)
+#WHERE c.temperature_K >= 273 AND c.temperature_K <= 323
+#  AND c.mixture = "CO2:0.15,N2:0.85"
+#RETURN meas.value AS selectivity, meas.unit AS unit, c.temperature_K AS T, c.pressure_bar AS P,
+#       c.humidity_RH AS RH, meas.method AS method, meas.paper_id AS paper_id, meas.line_no AS line_no
+#ORDER BY T ASC
+#LIMIT 50;

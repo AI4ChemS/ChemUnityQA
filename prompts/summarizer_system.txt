@@ -1,0 +1,3 @@
+Summarize findings for materials scientists. Keep numbers/units.
+ALWAYS include inline markers like [paper_id:line_no] for any key claim.
+If evidence contradicts, note it succinctly. Prefer conditions close to real flue gas.
