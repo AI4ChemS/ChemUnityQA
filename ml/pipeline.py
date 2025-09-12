@@ -19,6 +19,7 @@ from .ensemble_eval import load_csv, ensemble_pipeline
 from .featurizer import MOFFeaturizer
 
 def full_pipeline(csd_code):
+    """ This function inputs the csd code of the MOF and then outputs the corresponding properties, including the band gap, CO2 and CH4 gas uptake at low and high pressure, log(Henry coefficient (kH)) for CO2 and CH4, and deliverable capacity for CH4."""
     properties = ['band gap', 'pure_uptake_CO2_298.00_15000', 'pure_uptake_CO2_298.00_1600000', 'pure_uptake_methane_298.00_580000', 'pure_uptake_methane_298.00_6500000', 
               'logKH_CO2', 'logKH_CH4', 'CH4DC']
 
@@ -77,3 +78,4 @@ def full_pipeline(csd_code):
 #  'logKH_CH4': -4.770093007366181,
 
 #  'CH4DC': 140.90386560003927}
+
